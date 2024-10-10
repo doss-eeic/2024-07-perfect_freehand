@@ -1,0 +1,9 @@
+{
+  "conventionalCommits.scopes": [
+    "value_notifier_tools",
+    "melos",
+    "example",
+    "simpli"
+  ],
+  "dart.flutterSdkPath": ".fvm/versions/3.24.0"
+}
