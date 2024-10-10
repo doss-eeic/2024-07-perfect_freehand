@@ -1,6 +1,6 @@
 {
-    "name": "fp_app",
-    "short_name": "fp_app",
+    "name": "test_scribble",
+    "short_name": "test_scribble",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
