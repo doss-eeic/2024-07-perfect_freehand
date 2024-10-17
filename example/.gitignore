@@ -43,4 +43,5 @@ app.*.map.json
 /android/app/release
 
 # xocode build artifacts
-*.xcodeproj
+**/*.xcodeproj
+**/*.pbxproj

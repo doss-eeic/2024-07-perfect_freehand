@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -454,5 +455,52 @@ class ScribbleNotifier extends ScribbleNotifierBase
       );
     }
     return s;
+  }
+
+  /// Method to export the current sketch as SVG text data.
+  String toSvg() {
+    final buffer = StringBuffer();
+
+    var minX = double.infinity;
+    var minY = double.infinity;
+    var maxX = double.negativeInfinity;
+    var maxY = double.negativeInfinity;
+
+    for (final line in currentSketch.lines) {
+      for (final point in line.points) {
+        minX = min(minX, point.x);
+        minY = min(minY, point.y);
+        maxX = max(maxX, point.x);
+        maxY = max(maxY, point.y);
+      }
+    }
+
+    if (minX == double.infinity) {
+      minX = minY = 0;
+      maxX = maxY = 100;
+    }
+
+    final width = maxX - minX;
+    final height = maxY - minY;
+
+    buffer.writeln('<?xml version="1.0" encoding="UTF-8" standalone="no"?>');
+    buffer.writeln(
+      '<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="$width" height="$height" viewBox="$minX $minY $width $height">',
+    );
+
+    for (final line in currentSketch.lines) {
+      if (line.points.length < 2) continue;
+      final pointsString = line.points.map((p) => '${p.x},${p.y}').join(' ');
+      final color =
+          '#${line.color.toRadixString(16).padLeft(8, '0').substring(2)}';
+      final strokeWidth = line.width;
+      buffer.writeln(
+        '<polyline points="$pointsString" stroke="$color" stroke-width="$strokeWidth" fill="none" stroke-linecap="round" stroke-linejoin="round" />',
+      );
+    }
+
+    // SVGフッター
+    buffer.writeln('</svg>');
+    return buffer.toString();
   }
 }

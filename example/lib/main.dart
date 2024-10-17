@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:scribble/scribble.dart';
 import 'package:value_notifier_tools/value_notifier_tools.dart';
 
@@ -118,6 +119,11 @@ class _HomePageState extends State<HomePage> {
         tooltip: "Show JSON",
         onPressed: () => _showJson(context),
       ),
+      IconButton(
+        icon: const Icon(Icons.image), // SVGアイコンを使用
+        tooltip: "Show SVG",
+        onPressed: () => _showSvg(context),
+      ),
     ];
   }
 
@@ -161,6 +167,42 @@ class _HomePageState extends State<HomePage> {
             onPressed: Navigator.of(context).pop,
             child: const Text("Close"),
           )
+        ],
+      ),
+    );
+  }
+
+  /// SVGデータを表示するダイアログを開くメソッド
+  void _showSvg(BuildContext context) {
+    final svgData = notifier.toSvg();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Sketch as SVG"),
+        content: SizedBox.expand(
+          child: SingleChildScrollView(
+            child: SelectableText(
+              svgData,
+              style: const TextStyle(fontFamily: 'Courier'),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: Navigator.of(context).pop,
+            child: const Text("Close"),
+          ),
+          TextButton(
+            onPressed: () {
+              // SVGデータをクリップボードにコピー
+              Clipboard.setData(ClipboardData(text: svgData));
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("SVG data copied to clipboard")),
+              );
+            },
+            child: const Text("Copy"),
+          ),
         ],
       ),
     );
