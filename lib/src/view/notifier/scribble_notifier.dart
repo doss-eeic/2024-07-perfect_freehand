@@ -499,7 +499,6 @@ class ScribbleNotifier extends ScribbleNotifierBase
       );
     }
 
-    // SVGフッター
     buffer.writeln('</svg>');
     return buffer.toString();
   }
