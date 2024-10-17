@@ -39,6 +39,7 @@ dependencies:
     # git:
     #   url: git@github.com:doss-eeic/2024-07-scribble.git
     #   ref: main
+  value_notifier_tools: ^0.1.2
 
 dev_dependencies:
   flutter_test:
