@@ -36,3 +36,6 @@ pubspec_overrides.yaml
 
 # FVM Version Cache
 .fvm/
+
+**/*.xcodeproj
+**/*.pbxproj
