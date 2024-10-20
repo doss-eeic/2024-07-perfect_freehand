@@ -12,7 +12,6 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -124,7 +123,32 @@ class _HomePageState extends State<HomePage> {
         tooltip: "Show SVG",
         onPressed: () => _showSvg(context),
       ),
+      IconButton(
+        icon: const Icon(Icons.upload), // SVG Import icon
+        tooltip: "Import SVG",
+        onPressed: () => _importSvg(context), // Call method to import SVG
+      ),
     ];
+  }
+
+  void _importSvg(BuildContext context) async {
+    try {
+      // Load the SVG file from assets
+      final svgData = await rootBundle.loadString('assets/images/sample.svg');
+
+      // Use the loadFromSvg method in the notifier to display the SVG
+      notifier.loadFromSvg(svgData);
+
+      // Show a success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("SVG imported successfully")),
+      );
+    } catch (e) {
+      // If an error occurs, display it in a SnackBar
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to load SVG: $e")),
+      );
+    }
   }
 
   void _showImage(BuildContext context) async {
@@ -172,9 +196,9 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  /// SVGデータを表示するダイアログを開くメソッド
   void _showSvg(BuildContext context) {
     final svgData = notifier.toSvg();
+    debugPrint(svgData);
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -194,7 +218,6 @@ class _HomePageState extends State<HomePage> {
           ),
           TextButton(
             onPressed: () {
-              // SVGデータをクリップボードにコピー
               Clipboard.setData(ClipboardData(text: svgData));
               Navigator.of(context).pop();
               ScaffoldMessenger.of(context).showSnackBar(
