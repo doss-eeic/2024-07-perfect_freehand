@@ -1,18 +1,9 @@
-<!--
-  Thanks for contributing!
+## 説明
 
-  Provide a description of your changes below and a general summary in the title
+ここに変更内容を記載してください。
 
-  Please look at the following checklist to ensure that your PR can be accepted quickly:
--->
+## チェックリスト
 
-## Description
-
-<!--- Describe your changes in detail -->
-
-## Checklist
-
-<!--- Put an `x` in all the boxes that apply: -->
-- [ ] My PR title is in the style of [conventional commits](https://www.conventionalcommits.org/)
-- [ ] All public facing APIs are documented with [dartdoc](https://dart.dev/guides/language/effective-dart/documentation)
-- [ ] I have added tests to cover my changes
+- [ ] 私の PR タイトルは[conventional commits](https://www.conventionalcommits.org/)のスタイルになっています
+- [ ] すべての公開 API が[ dartdoc](https://dart.dev/guides/language/effective-dart/documentation)でドキュメント化されています
+- [ ] 変更をカバーするテストを追加しました

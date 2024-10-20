@@ -9,6 +9,7 @@ import 'package:scribble/scribble.dart';
 import 'package:scribble/src/view/painting/point_to_offset_x.dart';
 import 'package:scribble/src/view/simplification/sketch_simplifier.dart';
 import 'package:value_notifier_tools/value_notifier_tools.dart';
+import 'package:xml/xml.dart';
 
 /// {@template scribble_notifier_base}
 /// The base class for a notifier that controls the state of a [Scribble]
@@ -501,5 +502,67 @@ class ScribbleNotifier extends ScribbleNotifierBase
 
     buffer.writeln('</svg>');
     return buffer.toString();
+  }
+
+  void loadFromSvg(String svgData) {
+    final document = XmlDocument.parse(svgData);
+    final svgElement = document.rootElement;
+
+    // Extract width and height from the SVG viewBox if necessary (optional)
+    final viewBox = svgElement.getAttribute('viewBox')?.split(' ') ??
+        ['0', '0', '100', '100'];
+
+    final minX = double.parse(viewBox[0]);
+    final minY = double.parse(viewBox[1]);
+    final width = double.parse(viewBox[2]);
+    final height = double.parse(viewBox[3]);
+
+    final lines = <SketchLine>[];
+
+    // Find all polyline elements in the SVG
+    for (final polylineElement in svgElement.findAllElements('polyline')) {
+      final pointsString = polylineElement.getAttribute('points');
+      if (pointsString == null) continue;
+
+      // Parse points
+      final points = pointsString.split(' ').map((point) {
+        final coords = point.split(',');
+        return Point(double.parse(coords[0]), double.parse(coords[1]));
+      }).toList();
+
+      // Get stroke color
+      final strokeColor = polylineElement.getAttribute('stroke') ?? '#000000';
+      final color = _parseHexColor(strokeColor);
+
+      // Get stroke width
+      final strokeWidth =
+          double.parse(polylineElement.getAttribute('stroke-width') ?? '1.0');
+
+      // Create a SketchLine with the parsed points, color, and stroke width
+      final sketchLine = SketchLine(
+        points: points,
+        color: color,
+        width: strokeWidth,
+      );
+
+      lines.add(sketchLine);
+    }
+
+    // Create the new sketch and update the ScribbleNotifier state
+    final sketch = Sketch(lines: lines);
+    setSketch(sketch: sketch);
+  }
+
+  // Helper method to parse hex color string
+  int _parseHexColor(String hexColor) {
+    if (hexColor.startsWith('#')) {
+      hexColor = hexColor.substring(1);
+    }
+
+    if (hexColor.length == 6) {
+      hexColor = 'FF$hexColor'; // Add opacity if it's missing
+    }
+
+    return int.parse(hexColor, radix: 16);
   }
 }
