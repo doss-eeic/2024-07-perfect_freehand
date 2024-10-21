@@ -4,7 +4,6 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:scribble/src/domain/model/sketch/sketch.dart';
 
 part 'scribble.state.freezed.dart';
-
 part 'scribble.state.g.dart';
 
 /// Which pointers are allowed for drawing and will be captured by the scribble

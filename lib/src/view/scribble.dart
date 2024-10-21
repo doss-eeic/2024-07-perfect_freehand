@@ -84,6 +84,7 @@ class Scribble extends StatelessWidget {
                       ? SystemMouseCursors.none
                       : MouseCursor.defer,
                   onExit: notifier.onPointerExit,
+                  //! ここで書き込む時の処理を指定している。
                   child: Listener(
                     onPointerDown: notifier.onPointerDown,
                     onPointerMove: notifier.onPointerUpdate,

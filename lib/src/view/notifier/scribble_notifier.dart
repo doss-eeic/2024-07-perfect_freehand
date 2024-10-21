@@ -264,6 +264,7 @@ class ScribbleNotifier extends ScribbleNotifierBase
     );
   }
 
+  //! ここ重要
   /// Simplifies the current sketch to the current simplification degree using
   /// [simplifier].
   ///
@@ -379,6 +380,7 @@ class ScribbleNotifier extends ScribbleNotifierBase
     } else if (value is Erasing) {
       value = _erasePoint(event).copyWith(
         pointerPosition: null,
+        // ここで特定のポインターを削除している。
         activePointerIds:
             value.activePointerIds.where((id) => id != event.pointer).toList(),
       );
@@ -413,16 +415,42 @@ class ScribbleNotifier extends ScribbleNotifierBase
     );
   }
 
+//! ここで消去処理を行なっている。
+  // ScribbleState _erasePoint(PointerEvent event) {
+  //   return value.copyWith.sketch(
+  //     lines: value.sketch.lines
+  //         .where(
+  //           (l) => l.points.every(
+  //             (p) =>
+  //                 (event.localPosition - p.asOffset).distance >
+  //                 l.width + value.selectedWidth,
+  //           ),
+  //         )
+  //         .toList(),
+  //   );
+  // }
+
   ScribbleState _erasePoint(PointerEvent event) {
     return value.copyWith.sketch(
       lines: value.sketch.lines
-          .where(
-            (l) => l.points.every(
-              (p) =>
-                  (event.localPosition - p.asOffset).distance >
-                  l.width + value.selectedWidth,
-            ),
-          )
+          .map((l) {
+            // ポイントをフィルタリングして、消しゴム範囲内にないポイントのみを残す
+            final filteredPoints = l.points
+                .where(
+                  (p) =>
+                      (event.localPosition - p.asOffset).distance >
+                      l.width + value.selectedWidth, // 消しゴムの影響範囲
+                )
+                .toList();
+
+            // 残っているポイントがある場合、新しい SketchLine を作成
+            if (filteredPoints.isNotEmpty) {
+              return l.copyWith(points: filteredPoints);
+            } else {
+              return null; // 空の線は削除
+            }
+          })
+          .whereType<SketchLine>() // null を除外
           .toList(),
     );
   }
@@ -512,10 +540,10 @@ class ScribbleNotifier extends ScribbleNotifierBase
     final viewBox = svgElement.getAttribute('viewBox')?.split(' ') ??
         ['0', '0', '100', '100'];
 
-    final minX = double.parse(viewBox[0]);
-    final minY = double.parse(viewBox[1]);
-    final width = double.parse(viewBox[2]);
-    final height = double.parse(viewBox[3]);
+    // final minX = double.parse(viewBox[0]);
+    // final minY = double.parse(viewBox[1]);
+    // final width = double.parse(viewBox[2]);
+    // final height = double.parse(viewBox[3]);
 
     final lines = <SketchLine>[];
 
@@ -555,14 +583,16 @@ class ScribbleNotifier extends ScribbleNotifierBase
 
   // Helper method to parse hex color string
   int _parseHexColor(String hexColor) {
-    if (hexColor.startsWith('#')) {
-      hexColor = hexColor.substring(1);
+    var processedHexColor = hexColor;
+
+    if (processedHexColor.startsWith('#')) {
+      processedHexColor = processedHexColor.substring(1);
     }
 
-    if (hexColor.length == 6) {
-      hexColor = 'FF$hexColor'; // Add opacity if it's missing
+    if (processedHexColor.length == 6) {
+      processedHexColor = 'FF$processedHexColor';
     }
 
-    return int.parse(hexColor, radix: 16);
+    return int.parse(processedHexColor, radix: 16);
   }
 }
