@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:scribble/scribble.dart';
 import 'package:value_notifier_tools/value_notifier_tools.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 void main() {
   runApp(const MyApp());
@@ -15,10 +16,11 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Scribble',
+      title: 'Scribble with WebView SVG Background',
       theme: ThemeData.from(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.purple)),
-      home: const HomePage(title: 'Scribble'),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.purple),
+      ),
+      home: const HomePage(title: 'Scribble with WebView'),
     );
   }
 }
@@ -34,17 +36,65 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   late ScribbleNotifier notifier;
+  late final WebViewController _webViewController; // WebViewControllerの追加
+  String? svgData; // SVGデータを保存
 
   @override
   void initState() {
     notifier = ScribbleNotifier();
+
+    // WebViewControllerを初期化
+    _webViewController = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(Colors.transparent)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onPageStarted: (url) {
+            debugPrint('Page started loading: $url');
+          },
+          onPageFinished: (url) {
+            debugPrint('Page finished loading: $url');
+          },
+        ),
+      );
+
     super.initState();
+    _loadSvg(); // SVGを読み込む
+  }
+
+  // SVGデータを読み込む
+  Future<void> _loadSvg() async {
+    try {
+      // assetsからSVGを文字列として読み込む
+      svgData = await rootBundle.loadString('assets/images/segment.svg');
+      if (svgData != null) {
+        _loadSvgIntoWebView();
+      }
+    } catch (e) {
+      debugPrint("Failed to load SVG: $e");
+    }
+  }
+
+  // WebViewにSVGを読み込む関数
+  void _loadSvgIntoWebView() {
+    final content = '''
+      <html>
+        <body style="margin: 0; padding: 0;">
+          $svgData
+        </body>
+      </html>
+    ''';
+
+    _webViewController.loadRequest(Uri.dataFromString(
+      content,
+      mimeType: 'text/html',
+      encoding: Encoding.getByName('utf-8'),
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         title: Text(widget.title),
         actions: _buildActions(context),
@@ -54,15 +104,24 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           children: [
             Expanded(
-              child: Card(
-                clipBehavior: Clip.hardEdge,
-                margin: EdgeInsets.zero,
-                color: Colors.white,
-                surfaceTintColor: Colors.white,
-                child: Scribble(
-                  notifier: notifier,
-                  drawPen: true,
-                ),
+              child: Stack(
+                children: [
+                  AbsorbPointer(
+                    child: WebViewWidget(
+                      controller: _webViewController, // WebViewControllerを渡す
+                    ),
+                  ),
+                  Listener(
+                    onPointerDown: (details) => notifier.onPointerDown(details),
+                    onPointerMove: (details) =>
+                        notifier.onPointerUpdate(details),
+                    onPointerUp: (details) => notifier.onPointerUp(details),
+                    child: Scribble(
+                      notifier: notifier,
+                      drawPen: true,
+                    ),
+                  ),
+                ],
               ),
             ),
             Padding(
@@ -83,7 +142,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  List<Widget> _buildActions(context) {
+  List<Widget> _buildActions(BuildContext context) {
     return [
       ValueListenableBuilder(
         valueListenable: notifier,
@@ -108,127 +167,7 @@ class _HomePageState extends State<HomePage> {
         tooltip: "Clear",
         onPressed: notifier.clear,
       ),
-      IconButton(
-        icon: const Icon(Icons.image),
-        tooltip: "Show PNG Image",
-        onPressed: () => _showImage(context),
-      ),
-      IconButton(
-        icon: const Icon(Icons.data_object),
-        tooltip: "Show JSON",
-        onPressed: () => _showJson(context),
-      ),
-      IconButton(
-        icon: const Icon(Icons.image), // SVGアイコンを使用
-        tooltip: "Show SVG",
-        onPressed: () => _showSvg(context),
-      ),
-      IconButton(
-        icon: const Icon(Icons.upload), // SVG Import icon
-        tooltip: "Import SVG",
-        onPressed: () => _importSvg(context), // Call method to import SVG
-      ),
     ];
-  }
-
-  void _importSvg(BuildContext context) async {
-    try {
-      // Load the SVG file from assets
-      final svgData = await rootBundle.loadString('assets/images/sample.svg');
-
-      // Use the loadFromSvg method in the notifier to display the SVG
-      notifier.loadFromSvg(svgData);
-
-      // Show a success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("SVG imported successfully")),
-      );
-    } catch (e) {
-      // If an error occurs, display it in a SnackBar
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to load SVG: $e")),
-      );
-    }
-  }
-
-  void _showImage(BuildContext context) async {
-    final image = notifier.renderImage();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Generated Image"),
-        content: SizedBox.expand(
-          child: FutureBuilder(
-            future: image,
-            builder: (context, snapshot) => snapshot.hasData
-                ? Image.memory(snapshot.data!.buffer.asUint8List())
-                : const Center(child: CircularProgressIndicator()),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: Navigator.of(context).pop,
-            child: const Text("Close"),
-          )
-        ],
-      ),
-    );
-  }
-
-  void _showJson(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Sketch as JSON"),
-        content: SizedBox.expand(
-          child: SelectableText(
-            jsonEncode(notifier.currentSketch.toJson()),
-            autofocus: true,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: Navigator.of(context).pop,
-            child: const Text("Close"),
-          )
-        ],
-      ),
-    );
-  }
-
-  void _showSvg(BuildContext context) {
-    final svgData = notifier.toSvg();
-    debugPrint(svgData);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Sketch as SVG"),
-        content: SizedBox.expand(
-          child: SingleChildScrollView(
-            child: SelectableText(
-              svgData,
-              style: const TextStyle(fontFamily: 'Courier'),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: Navigator.of(context).pop,
-            child: const Text("Close"),
-          ),
-          TextButton(
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: svgData));
-              Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("SVG data copied to clipboard")),
-              );
-            },
-            child: const Text("Copy"),
-          ),
-        ],
-      ),
-    );
   }
 
   Widget _buildStrokeToolbar(BuildContext context) {
@@ -300,29 +239,30 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildPointerModeSwitcher(BuildContext context) {
     return ValueListenableBuilder(
-        valueListenable: notifier.select(
-          (value) => value.allowedPointersMode,
-        ),
-        builder: (context, value, child) {
-          return SegmentedButton<ScribblePointerMode>(
-            multiSelectionEnabled: false,
-            emptySelectionAllowed: false,
-            onSelectionChanged: (v) => notifier.setAllowedPointersMode(v.first),
-            segments: const [
-              ButtonSegment(
-                value: ScribblePointerMode.all,
-                icon: Icon(Icons.touch_app),
-                label: Text("All pointers"),
-              ),
-              ButtonSegment(
-                value: ScribblePointerMode.penOnly,
-                icon: Icon(Icons.draw),
-                label: Text("Pen only"),
-              ),
-            ],
-            selected: {value},
-          );
-        });
+      valueListenable: notifier.select(
+        (value) => value.allowedPointersMode,
+      ),
+      builder: (context, value, child) {
+        return SegmentedButton<ScribblePointerMode>(
+          multiSelectionEnabled: false,
+          emptySelectionAllowed: false,
+          onSelectionChanged: (v) => notifier.setAllowedPointersMode(v.first),
+          segments: const [
+            ButtonSegment(
+              value: ScribblePointerMode.all,
+              icon: Icon(Icons.touch_app),
+              label: Text("All pointers"),
+            ),
+            ButtonSegment(
+              value: ScribblePointerMode.penOnly,
+              icon: Icon(Icons.draw),
+              label: Text("Pen only"),
+            ),
+          ],
+          selected: {value},
+        );
+      },
+    );
   }
 
   Widget _buildEraserButton(BuildContext context) {
@@ -344,7 +284,8 @@ class _HomePageState extends State<HomePage> {
   }) {
     return ValueListenableBuilder(
       valueListenable: notifier.select(
-          (value) => value is Drawing && value.selectedColor == color.value),
+        (value) => value is Drawing && value.selectedColor == color.value,
+      ),
       builder: (context, value, child) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4),
         child: ColorButton(
@@ -368,13 +309,9 @@ class ColorButton extends StatelessWidget {
   });
 
   final Color color;
-
   final Color? outlineColor;
-
   final bool isActive;
-
   final VoidCallback onPressed;
-
   final Icon? child;
 
   @override
@@ -384,10 +321,7 @@ class ColorButton extends StatelessWidget {
       decoration: ShapeDecoration(
         shape: CircleBorder(
           side: BorderSide(
-            color: switch (isActive) {
-              true => outlineColor ?? color,
-              false => Colors.transparent,
-            },
+            color: isActive ? outlineColor ?? color : Colors.transparent,
             width: 2,
           ),
         ),

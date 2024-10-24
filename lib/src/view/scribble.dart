@@ -1,4 +1,4 @@
-import 'dart:ui';
+import 'dart:ui' as ui; // dart:uiを使用して低レベルなImageを扱う
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -25,7 +25,13 @@ class Scribble extends StatelessWidget {
 
     /// Whether to draw the pointer when in erasing mode
     this.drawEraser = true,
+
+    /// Whether to simulate pressure when drawing lines that don't have pressure
+    /// information (all points have the same pressure).
     this.simulatePressure = true,
+
+    /// Background image to display behind the scribble area
+    this.backgroundImage, // 背景画像のプロパティを追加
     super.key,
   });
 
@@ -38,13 +44,11 @@ class Scribble extends StatelessWidget {
   /// Whether to draw the pointer when in erasing mode
   final bool drawEraser;
 
-  /// {@template scribble.simulate_pressure}
-  /// Whether to simulate pressure when drawing lines that don't have pressure
-  /// information (all points have the same pressure).
-  ///
-  /// Defaults to `true`.
-  /// {@endtemplate}
+  /// Whether to simulate pressure when drawing lines without pressure data
   final bool simulatePressure;
+
+  /// Background image to display behind the scribble area
+  final ui.Image? backgroundImage; // dart:uiのImage型を使う背景画像プロパティ
 
   @override
   Widget build(BuildContext context) {
@@ -53,26 +57,40 @@ class Scribble extends StatelessWidget {
       builder: (context, state, _) {
         final drawCurrentTool =
             drawPen && state is Drawing || drawEraser && state is Erasing;
+
         final child = SizedBox.expand(
-          child: CustomPaint(
-            foregroundPainter: ScribbleEditingPainter(
-              state: state,
-              drawPointer: drawPen,
-              drawEraser: drawEraser,
-              simulatePressure: simulatePressure,
-            ),
-            child: RepaintBoundary(
-              key: notifier.repaintBoundaryKey,
-              child: CustomPaint(
-                painter: ScribblePainter(
-                  sketch: state.sketch,
-                  scaleFactor: state.scaleFactor,
+          child: Stack(
+            // Stackで背景と書き込みエリアを重ねる
+            children: [
+              if (backgroundImage != null)
+                Positioned.fill(
+                  child: CustomPaint(
+                    painter:
+                        BackgroundImagePainter(backgroundImage!), // 背景画像を描画
+                  ),
+                ),
+              CustomPaint(
+                foregroundPainter: ScribbleEditingPainter(
+                  state: state,
+                  drawPointer: drawPen,
+                  drawEraser: drawEraser,
                   simulatePressure: simulatePressure,
                 ),
+                child: RepaintBoundary(
+                  key: notifier.repaintBoundaryKey,
+                  child: CustomPaint(
+                    painter: ScribblePainter(
+                      sketch: state.sketch,
+                      scaleFactor: state.scaleFactor,
+                      simulatePressure: simulatePressure,
+                    ),
+                  ),
+                ),
               ),
-            ),
+            ],
           ),
         );
+
         return !state.active
             ? child
             : GestureCatcher(
@@ -96,5 +114,28 @@ class Scribble extends StatelessWidget {
               );
       },
     );
+  }
+}
+
+/// CustomPainter to draw the background image
+class BackgroundImagePainter extends CustomPainter {
+  BackgroundImagePainter(this.backgroundImage);
+  final ui.Image backgroundImage;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 画像をキャンバス全体に合わせて描画する
+    final paint = Paint();
+    final imageSize = Size(
+        backgroundImage.width.toDouble(), backgroundImage.height.toDouble());
+    final srcRect = Offset.zero & imageSize;
+    final dstRect = Offset.zero & size; // 背景をウィジェット全体にフィットさせる
+
+    canvas.drawImageRect(backgroundImage, srcRect, dstRect, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return false;
   }
 }
