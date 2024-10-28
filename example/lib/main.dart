@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:scribble/scribble.dart';
 import 'package:value_notifier_tools/value_notifier_tools.dart';
@@ -204,27 +206,63 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showImage(BuildContext context) async {
-    final image = notifier.renderImage();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Generated Image"),
-        content: SizedBox.expand(
-          child: FutureBuilder(
-            future: image,
-            builder: (context, snapshot) => snapshot.hasData
-                ? Image.memory(snapshot.data!.buffer.asUint8List())
-                : const Center(child: CircularProgressIndicator()),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: Navigator.of(context).pop,
-            child: const Text("Close"),
-          )
-        ],
-      ),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      // 描画領域のサイズを確認する
+      if (notifier.repaintBoundaryKey.currentContext != null) {
+        final boundary = notifier.repaintBoundaryKey.currentContext!
+            .findRenderObject() as RenderRepaintBoundary;
+
+        // 実際のサイズをデバッグ出力
+        final width = boundary.size.width;
+        final height = boundary.size.height;
+        print('RenderRepaintBoundary size: width = $width, height = $height');
+
+        // サイズが有効か確認する
+        if (width > 0 && height > 0) {
+          try {
+            // サイズが有効な場合にのみ画像を生成
+            final image = await boundary.toImage();
+            final byteData =
+                await image.toByteData(format: ui.ImageByteFormat.png);
+            final pngBytes = byteData?.buffer.asUint8List();
+
+            // ダイアログで画像を表示
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text("Generated Image"),
+                content: pngBytes != null
+                    ? Image.memory(pngBytes)
+                    : const Text("Failed to generate image."),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text("Close"),
+                  ),
+                ],
+              ),
+            );
+          } catch (e) {
+            debugPrint("Error generating image: $e");
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text("Error generating image: $e")),
+            );
+          }
+        } else {
+          // サイズが無効な場合のエラーハンドリング
+          debugPrint("Invalid size: width and height must be greater than 0.");
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Invalid size for image capture.")),
+          );
+        }
+      } else {
+        // RepaintBoundary が存在しない場合のエラーハンドリング
+        debugPrint("RepaintBoundary is not ready.");
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("RepaintBoundary is not ready.")),
+        );
+      }
+    });
   }
 
   void _showJson(BuildContext context) {
