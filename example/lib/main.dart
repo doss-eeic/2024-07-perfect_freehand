@@ -106,10 +106,8 @@ class _HomePageState extends State<HomePage> {
             Expanded(
               child: Stack(
                 children: [
-                  AbsorbPointer(
-                    child: WebViewWidget(
-                      controller: _webViewController, // WebViewControllerを渡す
-                    ),
+                  WebViewWidget(
+                    controller: _webViewController,
                   ),
                   Listener(
                     onPointerDown: (details) => notifier.onPointerDown(details),

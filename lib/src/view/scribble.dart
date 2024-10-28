@@ -7,6 +7,7 @@ import 'package:scribble/src/view/painting/scribble_editing_painter.dart';
 import 'package:scribble/src/view/painting/scribble_painter.dart';
 import 'package:scribble/src/view/pan_gesture_catcher.dart';
 import 'package:scribble/src/view/state/scribble.state.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 /// {@template scribble}
 /// This Widget represents a canvas on which users can draw with any pointer.
@@ -31,7 +32,8 @@ class Scribble extends StatelessWidget {
     this.simulatePressure = true,
 
     /// Background image to display behind the scribble area
-    this.backgroundImage, // 背景画像のプロパティを追加
+    this.backgroundImage,
+    this.webViewController,
     super.key,
   });
 
@@ -49,6 +51,7 @@ class Scribble extends StatelessWidget {
 
   /// Background image to display behind the scribble area
   final ui.Image? backgroundImage; // dart:uiのImage型を使う背景画像プロパティ
+  final WebViewController? webViewController;
 
   @override
   Widget build(BuildContext context) {
@@ -62,6 +65,14 @@ class Scribble extends StatelessWidget {
           child: Stack(
             // Stackで背景と書き込みエリアを重ねる
             children: [
+              if (webViewController != null)
+                Positioned.fill(
+                  child: AbsorbPointer(
+                    child: WebViewWidget(
+                      controller: webViewController!,
+                    ),
+                  ),
+                ),
               if (backgroundImage != null)
                 Positioned.fill(
                   child: CustomPaint(
@@ -127,7 +138,9 @@ class BackgroundImagePainter extends CustomPainter {
     // 画像をキャンバス全体に合わせて描画する
     final paint = Paint();
     final imageSize = Size(
-        backgroundImage.width.toDouble(), backgroundImage.height.toDouble());
+      backgroundImage.width.toDouble(),
+      backgroundImage.height.toDouble(),
+    );
     final srcRect = Offset.zero & imageSize;
     final dstRect = Offset.zero & size; // 背景をウィジェット全体にフィットさせる
 
