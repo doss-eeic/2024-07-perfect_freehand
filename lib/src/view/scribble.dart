@@ -1,4 +1,4 @@
-import 'dart:ui';
+import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -7,94 +7,187 @@ import 'package:scribble/src/view/painting/scribble_editing_painter.dart';
 import 'package:scribble/src/view/painting/scribble_painter.dart';
 import 'package:scribble/src/view/pan_gesture_catcher.dart';
 import 'package:scribble/src/view/state/scribble.state.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
-/// {@template scribble}
-/// This Widget represents a canvas on which users can draw with any pointer.
-///
-/// You can control its behavior from code using the [notifier] instance you
-/// pass in.
-/// {@endtemplate}
 class Scribble extends StatelessWidget {
-  /// {@macro scribble}
   const Scribble({
-    /// The notifier that controls this canvas.
     required this.notifier,
-
-    /// Whether to draw the pointer when in drawing mode
     this.drawPen = true,
-
-    /// Whether to draw the pointer when in erasing mode
     this.drawEraser = true,
     this.simulatePressure = true,
+    this.backgroundImage,
+    this.webViewController,
     super.key,
   });
 
-  /// The notifier that controls this canvas.
   final ScribbleNotifierBase notifier;
-
-  /// Whether to draw the pointer when in drawing mode
   final bool drawPen;
-
-  /// Whether to draw the pointer when in erasing mode
   final bool drawEraser;
-
-  /// {@template scribble.simulate_pressure}
-  /// Whether to simulate pressure when drawing lines that don't have pressure
-  /// information (all points have the same pressure).
-  ///
-  /// Defaults to `true`.
-  /// {@endtemplate}
   final bool simulatePressure;
+  final ui.Image? backgroundImage;
+  final WebViewController? webViewController;
 
   @override
   Widget build(BuildContext context) {
-    return ValueListenableBuilder<ScribbleState>(
-      valueListenable: notifier,
-      builder: (context, state, _) {
-        final drawCurrentTool =
-            drawPen && state is Drawing || drawEraser && state is Erasing;
-        final child = SizedBox.expand(
-          child: CustomPaint(
-            foregroundPainter: ScribbleEditingPainter(
-              state: state,
-              drawPointer: drawPen,
-              drawEraser: drawEraser,
-              simulatePressure: simulatePressure,
-            ),
-            child: RepaintBoundary(
-              key: notifier.repaintBoundaryKey,
-              child: CustomPaint(
-                painter: ScribblePainter(
-                  sketch: state.sketch,
-                  scaleFactor: state.scaleFactor,
-                  simulatePressure: simulatePressure,
-                ),
-              ),
-            ),
+    return Stack(
+      children: [
+        if (webViewController != null)
+          WebViewWidget(
+            controller: webViewController!,
           ),
-        );
-        return !state.active
-            ? child
-            : GestureCatcher(
-                pointerKindsToCatch: state.supportedPointerKinds,
-                child: MouseRegion(
-                  cursor: drawCurrentTool &&
-                          state.supportedPointerKinds
-                              .contains(PointerDeviceKind.mouse)
-                      ? SystemMouseCursors.none
-                      : MouseCursor.defer,
-                  onExit: notifier.onPointerExit,
-                  child: Listener(
-                    onPointerDown: notifier.onPointerDown,
-                    onPointerMove: notifier.onPointerUpdate,
-                    onPointerUp: notifier.onPointerUp,
-                    onPointerHover: notifier.onPointerHover,
-                    onPointerCancel: notifier.onPointerCancel,
-                    child: child,
+        ValueListenableBuilder<ScribbleState>(
+          valueListenable: notifier,
+          builder: (context, state, _) {
+            final drawCurrentTool =
+                drawPen && state is Drawing || drawEraser && state is Erasing;
+
+            return ClipRect(
+              // ClipRectを追加して範囲外での描画を防ぐ
+              child: Stack(
+                children: [
+                  // 背景画像を描画
+                  if (backgroundImage != null)
+                    Positioned.fill(
+                      child: CustomPaint(
+                        painter: BackgroundImagePainter(backgroundImage!),
+                      ),
+                    ),
+                  // スケッチ描画
+                  // CustomPaint(
+                  //   foregroundPainter: ScribbleEditingPainter(
+                  //     state: state,
+                  //     drawPointer: drawPen,
+                  //     drawEraser: drawEraser,
+                  //     simulatePressure: simulatePressure,
+                  //   ),
+                  //   child: RepaintBoundary(
+                  //     key: notifier.repaintBoundaryKey,
+                  //     child: CustomPaint(
+                  //       painter: ScribblePainter(
+                  //         sketch: state.sketch,
+                  //         scaleFactor: state.scaleFactor,
+                  //         simulatePressure: simulatePressure,
+                  //       ),
+                  //     ),
+                  //   ),
+                  // ),
+                  Positioned.fill(
+                    child: CustomPaint(
+                      foregroundPainter: ScribbleEditingPainter(
+                        state: state,
+                        drawPointer: drawPen,
+                        drawEraser: drawEraser,
+                        simulatePressure: simulatePressure,
+                      ),
+                      child: RepaintBoundary(
+                        key: notifier.repaintBoundaryKey,
+                        child: Builder(
+                          builder: (context) {
+                            // RenderRepaintBoundary のサイズをログに出力
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              final renderBox =
+                                  context.findRenderObject() as RenderBox?;
+                              if (renderBox != null) {
+                                print(
+                                  "RepaintBoundary size: ${renderBox.size.width} x ${renderBox.size.height}",
+                                );
+                              }
+                            });
+                            return CustomPaint(
+                              painter: ScribblePainter(
+                                sketch: state.sketch,
+                                scaleFactor: state.scaleFactor,
+                                simulatePressure: simulatePressure,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              );
-      },
+
+                  // ジェスチャーイベントの処理
+                  if (state.active)
+                    GestureCatcher(
+                      pointerKindsToCatch: state.supportedPointerKinds,
+                      child: MouseRegion(
+                        cursor: drawPen &&
+                                state.supportedPointerKinds
+                                    .contains(PointerDeviceKind.mouse)
+                            ? SystemMouseCursors.none
+                            : MouseCursor.defer,
+                        onExit: notifier.onPointerExit,
+                        child: Listener(
+                          onPointerDown: (details) {
+                            // 描画範囲を超えないように制限
+                            _handlePointerEventWithinBounds(details, context,
+                                () {
+                              notifier.onPointerDown(details);
+                            });
+                          },
+                          onPointerMove: (details) {
+                            _handlePointerEventWithinBounds(details, context,
+                                () {
+                              notifier.onPointerUpdate(details);
+                            });
+                          },
+                          onPointerUp: notifier.onPointerUp,
+                          onPointerHover: notifier.onPointerHover,
+                          onPointerCancel: notifier.onPointerCancel,
+                          child: Container(
+                            color: Colors.transparent,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
     );
+  }
+
+  // ポインタイベントがScribbleの範囲内かどうかをチェック
+  void _handlePointerEventWithinBounds(
+    PointerEvent details,
+    BuildContext context,
+    VoidCallback callback,
+  ) {
+    final renderBox = context.findRenderObject()! as RenderBox;
+    final localPosition = renderBox.globalToLocal(details.position);
+
+    // 描画範囲内か確認する
+    if (localPosition.dx >= 0 &&
+        localPosition.dy >= 0 &&
+        localPosition.dx <= renderBox.size.width &&
+        localPosition.dy <= renderBox.size.height) {
+      callback();
+    }
+  }
+}
+
+/// CustomPainter to draw the background image
+class BackgroundImagePainter extends CustomPainter {
+  BackgroundImagePainter(this.backgroundImage);
+  final ui.Image backgroundImage;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint();
+    final imageSize = Size(
+      backgroundImage.width.toDouble(),
+      backgroundImage.height.toDouble(),
+    );
+    final srcRect = Offset.zero & imageSize;
+    final dstRect = Offset.zero & size;
+
+    canvas.drawImageRect(backgroundImage, srcRect, dstRect, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) {
+    return false;
   }
 }

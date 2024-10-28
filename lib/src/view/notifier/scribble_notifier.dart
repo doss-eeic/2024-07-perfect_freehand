@@ -519,7 +519,7 @@ class ScribbleNotifier extends ScribbleNotifierBase
 
     final lines = <SketchLine>[];
 
-    // Find all polyline elements in the SVG
+    // Process polyline elements only
     for (final polylineElement in svgElement.findAllElements('polyline')) {
       final pointsString = polylineElement.getAttribute('points');
       if (pointsString == null) continue;
@@ -551,6 +551,13 @@ class ScribbleNotifier extends ScribbleNotifierBase
     // Create the new sketch and update the ScribbleNotifier state
     final sketch = Sketch(lines: lines);
     setSketch(sketch: sketch);
+  }
+
+// Example function for parsing path data (simple version, you may need a more robust parser)
+  List<Point> _parseSvgPath(String dAttribute) {
+    // Implement a parser for the 'd' attribute of 'path' elements
+    // This is a placeholder and will need actual implementation for real path parsing
+    return [];
   }
 
   // Helper method to parse hex color string
