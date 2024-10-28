@@ -104,22 +104,15 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           children: [
             Expanded(
-              child: Stack(
-                children: [
-                  WebViewWidget(
-                    controller: _webViewController,
-                  ),
-                  Listener(
-                    onPointerDown: (details) => notifier.onPointerDown(details),
-                    onPointerMove: (details) =>
-                        notifier.onPointerUpdate(details),
-                    onPointerUp: (details) => notifier.onPointerUp(details),
-                    child: Scribble(
-                      notifier: notifier,
-                      drawPen: true,
-                    ),
-                  ),
-                ],
+              child: Listener(
+                onPointerDown: (details) => notifier.onPointerDown(details),
+                onPointerMove: (details) => notifier.onPointerUpdate(details),
+                onPointerUp: (details) => notifier.onPointerUp(details),
+                child: Scribble(
+                  notifier: notifier,
+                  drawPen: true,
+                  webViewController: _webViewController,
+                ),
               ),
             ),
             Padding(
@@ -165,7 +158,127 @@ class _HomePageState extends State<HomePage> {
         tooltip: "Clear",
         onPressed: notifier.clear,
       ),
+      IconButton(
+        icon: const Icon(Icons.image),
+        tooltip: "Show PNG Image",
+        onPressed: () => _showImage(context),
+      ),
+      IconButton(
+        icon: const Icon(Icons.data_object),
+        tooltip: "Show JSON",
+        onPressed: () => _showJson(context),
+      ),
+      IconButton(
+        icon: const Icon(Icons.image), // SVGアイコンを使用
+        tooltip: "Show SVG",
+        onPressed: () => _showSvg(context),
+      ),
+      IconButton(
+        icon: const Icon(Icons.upload), // SVG Import icon
+        tooltip: "Import SVG",
+        onPressed: () => _importSvg(context), // Call method to import SVG
+      ),
     ];
+  }
+
+  void _importSvg(BuildContext context) async {
+    try {
+      // Load the SVG file from assets
+      final svgData = await rootBundle.loadString('assets/images/sample.svg');
+
+      // Use the loadFromSvg method in the notifier to display the SVG
+      notifier.loadFromSvg(svgData);
+
+      // Show a success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("SVG imported successfully")),
+      );
+    } catch (e) {
+      // If an error occurs, display it in a SnackBar
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to load SVG: $e")),
+      );
+    }
+  }
+
+  void _showImage(BuildContext context) async {
+    final image = notifier.renderImage();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Generated Image"),
+        content: SizedBox.expand(
+          child: FutureBuilder(
+            future: image,
+            builder: (context, snapshot) => snapshot.hasData
+                ? Image.memory(snapshot.data!.buffer.asUint8List())
+                : const Center(child: CircularProgressIndicator()),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: Navigator.of(context).pop,
+            child: const Text("Close"),
+          )
+        ],
+      ),
+    );
+  }
+
+  void _showJson(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Sketch as JSON"),
+        content: SizedBox.expand(
+          child: SelectableText(
+            jsonEncode(notifier.currentSketch.toJson()),
+            autofocus: true,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: Navigator.of(context).pop,
+            child: const Text("Close"),
+          )
+        ],
+      ),
+    );
+  }
+
+  void _showSvg(BuildContext context) {
+    final svgData = notifier.toSvg();
+    debugPrint(svgData);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Sketch as SVG"),
+        content: SizedBox.expand(
+          child: SingleChildScrollView(
+            child: SelectableText(
+              svgData,
+              style: const TextStyle(fontFamily: 'Courier'),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: Navigator.of(context).pop,
+            child: const Text("Close"),
+          ),
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: svgData));
+              Navigator.of(context).pop();
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("SVG data copied to clipboard")),
+              );
+            },
+            child: const Text("Copy"),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildStrokeToolbar(BuildContext context) {
