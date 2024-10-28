@@ -104,15 +104,10 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           children: [
             Expanded(
-              child: Listener(
-                onPointerDown: (details) => notifier.onPointerDown(details),
-                onPointerMove: (details) => notifier.onPointerUpdate(details),
-                onPointerUp: (details) => notifier.onPointerUp(details),
-                child: Scribble(
-                  notifier: notifier,
-                  drawPen: true,
-                  webViewController: _webViewController,
-                ),
+              child: Scribble(
+                notifier: notifier,
+                drawPen: true,
+                webViewController: _webViewController,
               ),
             ),
             Padding(

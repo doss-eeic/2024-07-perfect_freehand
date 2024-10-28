@@ -9,6 +9,7 @@ import 'package:scribble/src/view/pan_gesture_catcher.dart';
 import 'package:scribble/src/view/state/scribble.state.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
+/// Scribble クラスの修正とデバッグ用ログ追加
 class Scribble extends StatelessWidget {
   const Scribble({
     required this.notifier,
@@ -29,14 +30,11 @@ class Scribble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    print('Scribble build');
     return Stack(
       children: [
         if (webViewController != null)
-          AbsorbPointer(
-            child: WebViewWidget(
-              controller: webViewController!,
-            ),
+          WebViewWidget(
+            controller: webViewController!,
           ),
         ValueListenableBuilder<ScribbleState>(
           valueListenable: notifier,
@@ -44,44 +42,37 @@ class Scribble extends StatelessWidget {
             final drawCurrentTool =
                 drawPen && state is Drawing || drawEraser && state is Erasing;
 
-            return SizedBox.expand(
-              child: Stack(
-                children: [
-                  if (backgroundImage != null)
-                    Positioned.fill(
-                      child: CustomPaint(
-                        painter: BackgroundImagePainter(backgroundImage!),
-                      ),
+            return Stack(
+              children: [
+                // 背景画像を描画
+                if (backgroundImage != null)
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: BackgroundImagePainter(backgroundImage!),
                     ),
-                  CustomPaint(
-                    foregroundPainter: ScribbleEditingPainter(
-                      state: state,
-                      drawPointer: drawPen,
-                      drawEraser: drawEraser,
-                      simulatePressure: simulatePressure,
-                    ),
-                    child: RepaintBoundary(
-                      key: notifier.repaintBoundaryKey,
-                      child: CustomPaint(
-                        painter: ScribblePainter(
-                          sketch: state.sketch,
-                          scaleFactor: state.scaleFactor,
-                          simulatePressure: simulatePressure,
-                        ),
+                  ),
+                // スケッチ描画
+                CustomPaint(
+                  foregroundPainter: ScribbleEditingPainter(
+                    state: state,
+                    drawPointer: drawPen,
+                    drawEraser: drawEraser,
+                    simulatePressure: simulatePressure,
+                  ),
+                  child: RepaintBoundary(
+                    key: notifier.repaintBoundaryKey,
+                    child: CustomPaint(
+                      painter: ScribblePainter(
+                        sketch: state.sketch,
+                        scaleFactor: state.scaleFactor,
+                        simulatePressure: simulatePressure,
                       ),
                     ),
                   ),
-                ],
-              ),
-            );
-          },
-        ),
-        ValueListenableBuilder<ScribbleState>(
-          valueListenable: notifier,
-          builder: (context, state, _) {
-            return !state.active
-                ? const SizedBox.shrink()
-                : GestureCatcher(
+                ),
+                // ジェスチャーイベントの処理
+                if (state.active)
+                  GestureCatcher(
                     pointerKindsToCatch: state.supportedPointerKinds,
                     child: MouseRegion(
                       cursor: drawPen &&
@@ -91,15 +82,34 @@ class Scribble extends StatelessWidget {
                           : MouseCursor.defer,
                       onExit: notifier.onPointerExit,
                       child: Listener(
-                        onPointerDown: notifier.onPointerDown,
-                        onPointerMove: notifier.onPointerUpdate,
-                        onPointerUp: notifier.onPointerUp,
-                        onPointerHover: notifier.onPointerHover,
-                        onPointerCancel: notifier.onPointerCancel,
-                        child: const SizedBox.expand(),
+                        onPointerDown: (details) {
+                          print('Pointer Down: $details');
+                          notifier.onPointerDown(details);
+                        },
+                        onPointerMove: (details) {
+                          print('Pointer Move: $details');
+                          notifier.onPointerUpdate(details);
+                        },
+                        onPointerUp: (details) {
+                          print('Pointer Up: $details');
+                          notifier.onPointerUp(details);
+                        },
+                        onPointerHover: (details) {
+                          print('Pointer Hover: $details');
+                          notifier.onPointerHover(details);
+                        },
+                        onPointerCancel: (details) {
+                          print('Pointer Cancel: $details');
+                          notifier.onPointerCancel(details);
+                        },
+                        child: Container(
+                          color: Colors.transparent,
+                        ),
                       ),
                     ),
-                  );
+                  ),
+              ],
+            );
           },
         ),
       ],
@@ -107,6 +117,7 @@ class Scribble extends StatelessWidget {
   }
 }
 
+/// CustomPainter to draw the background image
 class BackgroundImagePainter extends CustomPainter {
   BackgroundImagePainter(this.backgroundImage);
   final ui.Image backgroundImage;
