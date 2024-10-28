@@ -41,6 +41,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void initState() {
+    super.initState();
     notifier = ScribbleNotifier();
 
     // WebViewControllerを初期化
@@ -57,9 +58,6 @@ class _HomePageState extends State<HomePage> {
           },
         ),
       );
-
-    super.initState();
-    _loadSvg(); // SVGを読み込む
   }
 
   // SVGデータを読み込む
@@ -67,17 +65,15 @@ class _HomePageState extends State<HomePage> {
     try {
       // assetsからSVGを文字列として読み込む
       svgData = await rootBundle.loadString('assets/images/segment.svg');
-      if (svgData != null) {
-        _loadSvgIntoWebView();
-      }
     } catch (e) {
       debugPrint("Failed to load SVG: $e");
     }
   }
 
-  // WebViewにSVGを読み込む関数
+  // ボタンを押したときにWebViewにSVGを読み込む関数
   void _loadSvgIntoWebView() {
-    final content = '''
+    if (svgData != null) {
+      final content = '''
       <html>
         <body style="margin: 0; padding: 0;">
           $svgData
@@ -85,11 +81,14 @@ class _HomePageState extends State<HomePage> {
       </html>
     ''';
 
-    _webViewController.loadRequest(Uri.dataFromString(
-      content,
-      mimeType: 'text/html',
-      encoding: Encoding.getByName('utf-8'),
-    ));
+      _webViewController.loadRequest(Uri.dataFromString(
+        content,
+        mimeType: 'text/html',
+        encoding: Encoding.getByName('utf-8'),
+      ));
+    } else {
+      debugPrint("SVG data is null.");
+    }
   }
 
   @override
@@ -121,13 +120,14 @@ class _HomePageState extends State<HomePage> {
                   _buildPointerModeSwitcher(context),
                 ],
               ),
-            )
+            ),
           ],
         ),
       ),
     );
   }
 
+  // 他の機能に対応するボタンなど
   List<Widget> _buildActions(BuildContext context) {
     return [
       ValueListenableBuilder(
@@ -164,14 +164,21 @@ class _HomePageState extends State<HomePage> {
         onPressed: () => _showJson(context),
       ),
       IconButton(
-        icon: const Icon(Icons.image), // SVGアイコンを使用
+        icon: const Icon(Icons.image),
         tooltip: "Show SVG",
         onPressed: () => _showSvg(context),
       ),
       IconButton(
-        icon: const Icon(Icons.upload), // SVG Import icon
         tooltip: "Import SVG",
-        onPressed: () => _importSvg(context), // Call method to import SVG
+        onPressed: () => _importSvg(context),
+        icon: const Icon(Icons.upload),
+      ),
+      IconButton(
+        onPressed: () async {
+          await _loadSvg(); // SVGデータをロード
+          _loadSvgIntoWebView(); // WebViewにSVGを読み込む
+        },
+        icon: const Icon(Icons.upload),
       ),
     ];
   }
