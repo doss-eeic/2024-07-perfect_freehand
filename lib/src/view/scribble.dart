@@ -52,25 +52,7 @@ class Scribble extends StatelessWidget {
                         painter: BackgroundImagePainter(backgroundImage!),
                       ),
                     ),
-                  // スケッチ描画
-                  // CustomPaint(
-                  //   foregroundPainter: ScribbleEditingPainter(
-                  //     state: state,
-                  //     drawPointer: drawPen,
-                  //     drawEraser: drawEraser,
-                  //     simulatePressure: simulatePressure,
-                  //   ),
-                  //   child: RepaintBoundary(
-                  //     key: notifier.repaintBoundaryKey,
-                  //     child: CustomPaint(
-                  //       painter: ScribblePainter(
-                  //         sketch: state.sketch,
-                  //         scaleFactor: state.scaleFactor,
-                  //         simulatePressure: simulatePressure,
-                  //       ),
-                  //     ),
-                  //   ),
-                  // ),
+
                   Positioned.fill(
                     child: CustomPaint(
                       foregroundPainter: ScribbleEditingPainter(
