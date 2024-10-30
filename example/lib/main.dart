@@ -1,9 +1,12 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:scribble/scribble.dart';
 import 'package:value_notifier_tools/value_notifier_tools.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -40,6 +43,7 @@ class _HomePageState extends State<HomePage> {
   late ScribbleNotifier notifier;
   late final WebViewController _webViewController; // WebViewControllerの追加
   String? svgData; // SVGデータを保存
+  ui.Image? backgroundImage;
 
   @override
   void initState() {
@@ -72,6 +76,90 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _saveCombinedImage() async {
+    try {
+      // キャンバスのサイズを取得
+      final boundary = notifier.repaintBoundaryKey.currentContext!
+          .findRenderObject() as RenderRepaintBoundary;
+
+      final boundaryWidth = boundary.size.width;
+      final boundaryHeight = boundary.size.height;
+
+      // サイズが有効か確認
+      if (boundaryWidth > 0 && boundaryHeight > 0) {
+        final recorder = ui.PictureRecorder();
+        final canvas = Canvas(
+            recorder,
+            Rect.fromPoints(
+                Offset.zero, Offset(boundaryWidth, boundaryHeight))); // 描画領域を指定
+
+        // 背景画像がある場合、それをキャンバスに描画
+        if (backgroundImage != null) {
+          final paint = Paint();
+          final imageSize = Size(backgroundImage!.width.toDouble(),
+              backgroundImage!.height.toDouble());
+          final srcRect = Offset.zero & imageSize;
+          final dstRect = Offset.zero & Size(boundaryWidth, boundaryHeight);
+
+          canvas.drawImageRect(backgroundImage!, srcRect, dstRect, paint);
+        }
+
+        final sketchImage = await boundary.toImage();
+        final sketchByteData =
+            await sketchImage.toByteData(format: ui.ImageByteFormat.png);
+        final sketchBytes = sketchByteData!.buffer.asUint8List();
+        final sketch = await decodeImageFromList(sketchBytes);
+
+        canvas.drawImage(sketch, Offset.zero, Paint());
+
+        final picture = recorder.endRecording();
+        final combinedImage = await picture.toImage(
+            boundaryWidth.toInt(), boundaryHeight.toInt());
+        final pngBytes =
+            await combinedImage.toByteData(format: ui.ImageByteFormat.png);
+
+        // 保存先ディレクトリの取得
+        final directory = await getApplicationDocumentsDirectory();
+        final filePath =
+            '${directory.path}/combined_image_${DateTime.now().millisecondsSinceEpoch}.png';
+        final file = File(filePath);
+        await file.writeAsBytes(pngBytes!.buffer.asUint8List());
+
+        // 保存した画像をダイアログで表示
+        _showImageDialog(context, pngBytes.buffer.asUint8List());
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('画像を保存しました: ${file.path}')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Invalid size for image capture.")),
+        );
+      }
+    } catch (e) {
+      debugPrint("Error saving combined image: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error saving image: $e")),
+      );
+    }
+  }
+
+  void _showImageDialog(BuildContext context, Uint8List imageBytes) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Saved Image"),
+        content: Image.memory(imageBytes),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("Close"),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ボタンを押したときにWebViewにSVGを読み込む関数
   void _loadSvgIntoWebView() {
     if (svgData != null) {
@@ -93,6 +181,18 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _pickBackgroundImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      final bytes = await pickedFile.readAsBytes();
+      final image = await decodeImageFromList(bytes);
+      setState(() {
+        backgroundImage = image;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -109,6 +209,7 @@ class _HomePageState extends State<HomePage> {
                 notifier: notifier,
                 drawPen: true,
                 webViewController: _webViewController,
+                backgroundImage: backgroundImage,
               ),
             ),
             Padding(
@@ -174,6 +275,16 @@ class _HomePageState extends State<HomePage> {
         tooltip: "Import SVG",
         onPressed: () => _importSvg(context),
         icon: const Icon(Icons.upload),
+      ),
+      IconButton(
+        icon: const Icon(Icons.image),
+        tooltip: "Pick Background Image",
+        onPressed: _pickBackgroundImage, // 背景画像を選択するボタンを追加
+      ),
+      IconButton(
+        icon: const Icon(Icons.save),
+        tooltip: "Save Combined Image",
+        onPressed: _saveCombinedImage, // 背景画像とスケッチを結合して保存
       ),
       IconButton(
         onPressed: () async {
